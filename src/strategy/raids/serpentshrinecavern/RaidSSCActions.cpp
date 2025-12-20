@@ -11,8 +11,7 @@ using namespace SerpentShrineCavernHelpers;
 
 // Trash Mobs
 
-// Non-combat method; some colossi leave a toxic pool upon death
-// Without this method, bots just stand (or drink) in the pool and die
+// Non-combat method (some colossi leave a toxic pool upon death)
 bool UnderbogColossusEscapeToxicPoolAction::Execute(Event event)
 {
     Aura* aura = bot->GetAura(SPELL_TOXIC_POOL);
@@ -542,51 +541,42 @@ bool TheLurkerBelowSpreadRangedInArcAction::Execute(Event event)
     auto it = lurkerRangedPositions.find(guid);
     if (it == lurkerRangedPositions.end())
     {
-        auto findIt = std::find(rangedMembers.begin(), rangedMembers.end(), bot);
-        size_t botIndex =
-            (findIt != rangedMembers.end()) ? std::distance(rangedMembers.begin(), findIt) : 0;
         size_t count = rangedMembers.size();
-        if (count == 0)
-            return false;
+        auto findIt = std::find(rangedMembers.begin(), rangedMembers.end(), bot);
+        size_t botIndex = (findIt != rangedMembers.end()) ?
+            std::distance(rangedMembers.begin(), findIt) : 0;
 
-        const float minRadius = 27.0f;
-        const float maxRadius = 29.0f;
-        const float mainTankFacingOrientation = 2.262f;
-        const float arcCenter =
-            Position::NormalizeOrientation(mainTankFacingOrientation + M_PI);
-
-        const float arcSpan = 2.0f * M_PI / 3.0f; // 120°
+        const float arcSpan = 2.0f * M_PI / 3.0f;
+        const float arcCenter = 2.262f;
         const float arcStart = arcCenter - arcSpan / 2.0f;
-        float angle;
-        if (count == 1)
-            angle = arcCenter;
-        else
-            angle = arcStart + (static_cast<float>(botIndex) / (count - 1)) * arcSpan;
 
-        float radius = frand(minRadius, maxRadius);
+        float angle = (count == 1) ? arcCenter :
+            (arcStart + arcSpan * static_cast<float>(botIndex) / static_cast<float>(count - 1));
+        float radius = 28.0f;
 
-        float tx = lurker->GetPositionX() + radius * std::cos(angle);
-        float ty = lurker->GetPositionY() + radius * std::sin(angle);
+        float targetX = lurker->GetPositionX() + radius * std::sin(angle);
+        float targetY = lurker->GetPositionY() + radius * std::cos(angle);
 
-        lurkerRangedPositions.try_emplace(guid, Position(tx, ty, lurker->GetPositionZ()));
+        lurkerRangedPositions.try_emplace(guid, Position(targetX, targetY, lurker->GetPositionZ()));
         it = lurkerRangedPositions.find(guid);
     }
 
     if (it == lurkerRangedPositions.end())
         return false;
 
-    const Position& target = it->second;
-    if (bot->GetExactDist2d(target.GetPositionX(), target.GetPositionY()) > 2.0f)
+    const Position& position = it->second;
+    if (bot->GetExactDist2d(position.GetPositionX(), position.GetPositionY()) > 2.0f)
     {
-        return MoveTo(SSC_MAP_ID, target.GetPositionX(), target.GetPositionY(),
-                      target.GetPositionZ(), false, false, false, false,
+        return MoveTo(SSC_MAP_ID, position.GetPositionX(), position.GetPositionY(),
+                      position.GetPositionZ(), false, false, false, false,
                       MovementPriority::MOVEMENT_COMBAT, true, false);
     }
 
     return false;
 }
 
-// If >= 3 tanks in the raid, the first 3 will each pick up 1 Guardian
+// During the submerge phase, if there are >= 3 tanks in the raid,
+// the first 3 will each pick up 1 Guardian
 bool TheLurkerBelowTanksPickUpAddsAction::Execute(Event event)
 {
     Player* mainTank = nullptr;
@@ -691,6 +681,7 @@ bool LeotherasTheBlindTargetSpellbindersAction::Execute(Event event)
     return false;
 }
 
+// Warlock tank action--see GetLeotherasDemonFormTank in RaidSSCHelpers.cpp
 bool LeotherasTheBlindDemonFormTankAttackBossAction::Execute(Event event)
 {
     Unit* leotherasDemon = GetActiveLeotherasDemon(botAI);
@@ -767,18 +758,18 @@ bool LeotherasTheBlindRunAwayFromWhirlwindAction::Execute(Event event)
     return false;
 }
 
-// If there is no Warlock tank, then a melee tank will be picking up Demon Leo
-// In that case, melee needs to get out after too many Chaos Blast stacks
+// This method is likely unnecessary unless the player does not use a Warlock tank
+// If a melee tank is used, other melee needs to run away after too many Chaos Blast stacks
 bool LeotherasTheBlindMeleeDpsRunAwayFromBossAction::Execute(Event event)
 {
     Unit* leotherasPhase2Demon = GetPhase2LeotherasDemon(botAI);
-    Player* demonFormTank = GetLeotherasDemonFormTank(botAI, bot);
+    /* Player* demonFormTank = GetLeotherasDemonFormTank(botAI, bot); */
 
-    if (!leotherasPhase2Demon || demonFormTank != nullptr)
+    if (!leotherasPhase2Demon /* || demonFormTank != nullptr */)
         return false;
 
     Aura* chaosBlast = bot->GetAura(SPELL_CHAOS_BLAST);
-    if (chaosBlast && chaosBlast->GetStackAmount() >= 5)
+    if (chaosBlast && chaosBlast->GetStackAmount() >= 4)
     {
         Unit* demonVictim = leotherasPhase2Demon->GetVictim();
         if (!demonVictim)
@@ -797,8 +788,8 @@ bool LeotherasTheBlindMeleeDpsRunAwayFromBossAction::Execute(Event event)
     return false;
 }
 
-// Tanks and healers have no ability to kill their own Inner Demons
-// Ranged DPS also struggle
+// Tanks and healers have no ability to kill their own Inner Demons; and ranged DPS
+// also struggle, so this cheat action kills their Inner Demons for them
 bool LeotherasTheBlindInnerDemonCheatAction::Execute(Event event)
 {
     Unit* innerDemon = nullptr;
@@ -930,8 +921,8 @@ bool LeotherasTheBlindManageDpsWaitTimersAction::Execute(Event event)
 }
 
 // Fathom-Lord Karathress
-// Note: Four tanks are required for the full strategy, but
-// Caribdis hits for nothing so just respec a DPS warrior and put on a shield
+// Note: 4 tanks are required for the full strategy, and having at least 2
+// is crucial to separate Caribdis from the others
 
 // Karathress is tanked near his starting position
 bool FathomLordKarathressMainTankPositionBossAction::Execute(Event event)
@@ -1186,9 +1177,8 @@ bool FathomLordKarathressMisdirectBossesToTanksAction::Execute(Event event)
     return false;
 }
 
-// Kill order is different from what is recommended for players because
-// bots handle Caribdis Cyclones poorly and need more time to get her down
-// than real players (normally, ranged would help with Sharkkis first)
+// Kill order is non-standard because bots handle Caribdis Cyclones poorly and need more time to
+// get her down than real players (standard approach is ranged DPS would help with Sharkkis first)
 bool FathomLordKarathressAssignDpsPriorityAction::Execute(Event event)
 {
     // Target priority 1: Spitfire Totems for melee dps
@@ -1217,7 +1207,7 @@ bool FathomLordKarathressAssignDpsPriorityAction::Execute(Event event)
         return false;
     }
 
-    // Target priority 3: Caribdis for ranged
+    // Target priority 3: Caribdis for ranged dps
     Unit* caribdis = AI_VALUE2(Unit*, "find target", "fathom-guard caribdis");
     if (botAI->IsRangedDps(bot) && caribdis && caribdis->IsAlive())
     {
@@ -1237,7 +1227,7 @@ bool FathomLordKarathressAssignDpsPriorityAction::Execute(Event event)
         return false;
     }
 
-    // Target priority 4: Sharkkis for melee (and ranged if Caribdis is down first)
+    // Target priority 4: Sharkkis for melee dps and, after Caribdis is down, ranged dps also
     Unit* sharkkis = AI_VALUE2(Unit*, "find target", "fathom-guard sharkkis");
     if (sharkkis && sharkkis->IsAlive())
     {
@@ -1337,6 +1327,8 @@ bool MorogrimTidewalkerMisdirectBossToMainTankAction::Execute(Event event)
     return false;
 }
 
+// Separate tanking positions are used for phase 1 and phase 2 to address the
+// Water Globule mechanic in phase 2
 bool MorogrimTidewalkerMoveBossToTankPositionAction::Execute(Event event)
 {
     Unit* tidewalker = AI_VALUE2(Unit*, "find target", "morogrim tidewalker");
@@ -1357,7 +1349,7 @@ bool MorogrimTidewalkerMoveBossToTankPositionAction::Execute(Event event)
     return false;
 }
 
-// Phase 1 tank position is up against the Northeast pillar
+// Phase 1: tank position is up against the Northeast pillar
 bool MorogrimTidewalkerMoveBossToTankPositionAction::MoveToPhase1TankPosition(Unit* tidewalker)
 {
     const Position& phase1 = TIDEWALKER_PHASE_1_TANK_POSITION;
@@ -1377,7 +1369,7 @@ bool MorogrimTidewalkerMoveBossToTankPositionAction::MoveToPhase1TankPosition(Un
     return false;
 }
 
-// Phase 2: move in two steps to get around the pillar and back into the Northeast corner
+// Phase 2: move in two steps to get around the pillar and back up into the Northeast corner
 bool MorogrimTidewalkerMoveBossToTankPositionAction::MoveToPhase2TankPosition(Unit* tidewalker)
 {
     const Position& phase2 = TIDEWALKER_PHASE_2_TANK_POSITION;
@@ -1428,7 +1420,8 @@ bool MorogrimTidewalkerMoveBossToTankPositionAction::MoveToPhase2TankPosition(Un
     return false;
 }
 
-// Stack behind the boss in the Northeast corner in phase 2
+// Ranged stack behind the boss in the Northeast corner in phase 2
+// No corresponding method for melee since they will do so anyway
 bool MorogrimTidewalkerPhase2RepositionRangedAction::Execute(Event event)
 {
     Unit* tidewalker = AI_VALUE2(Unit*, "find target", "morogrim tidewalker");
@@ -1535,7 +1528,7 @@ bool LadyVashjMainTankPositionBossAction::Execute(Event event)
                               false, false, MovementPriority::MOVEMENT_COMBAT, true, true);
             }
         }
-        // Phase 3: Move Vashj away from Enchanted Elementals
+        // Phase 3: No fixed position, but move Vashj away from Enchanted Elementals
         else if (IsLadyVashjInPhase3(botAI))
         {
             Unit* enchanted = AI_VALUE2(Unit*, "find target", "enchanted elemental");
@@ -1552,7 +1545,7 @@ bool LadyVashjMainTankPositionBossAction::Execute(Event event)
     return false;
 }
 
-// Semicircle around center of the room (to allow escape by Static Charged bots)
+// Semicircle around center of the room (to allow escape paths by Static Charged bots)
 bool LadyVashjPhase1SpreadRangedInArcAction::Execute(Event event)
 {
     std::vector<Player*> spreadMembers;
@@ -1576,7 +1569,8 @@ bool LadyVashjPhase1SpreadRangedInArcAction::Execute(Event event)
     if (itPos == vashjRangedPositions.end())
     {
         auto it = std::find(spreadMembers.begin(), spreadMembers.end(), bot);
-        size_t botIndex = (it != spreadMembers.end()) ? std::distance(spreadMembers.begin(), it) : 0;
+        size_t botIndex = (it != spreadMembers.end()) ?
+            std::distance(spreadMembers.begin(), it) : 0;
         size_t count = spreadMembers.size();
         if (count == 0)
             return false;
@@ -1599,8 +1593,7 @@ bool LadyVashjPhase1SpreadRangedInArcAction::Execute(Event event)
         float targetX = center.GetPositionX() + radius * std::cos(angle);
         float targetY = center.GetPositionY() + radius * std::sin(angle);
 
-        auto res = vashjRangedPositions.try_emplace(
-            guid, Position(targetX, targetY, center.GetPositionZ()));
+        auto res = vashjRangedPositions.try_emplace(guid, Position(targetX, targetY, center.GetPositionZ()));
         itPos = res.first;
         hasReachedVashjRangedPosition.try_emplace(guid, false);
         itReached = hasReachedVashjRangedPosition.find(guid);
@@ -1626,6 +1619,7 @@ bool LadyVashjPhase1SpreadRangedInArcAction::Execute(Event event)
 }
 
 // For absorbing Shock Burst
+// For some reason, if you use an Enhancement Shaman for this method, they will not dps
 bool LadyVashjSetGroundingTotemInMainTankGroupAction::Execute(Event event)
 {
     Player* mainTank = nullptr;
@@ -1720,7 +1714,7 @@ bool LadyVashjStaticChargeMoveAwayFromGroupAction::Execute(Event event)
             return MoveFromGroup(safeDistance + 0.5f);
     }
 
-    // If any other bot has static charge, it should move away from other group members
+    // If any other bot has Static Charge, it should move away from other group members
     if (!botAI->IsMainTank(bot) && bot->HasAura(SPELL_STATIC_CHARGE))
     {
         for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
@@ -1739,115 +1733,7 @@ bool LadyVashjStaticChargeMoveAwayFromGroupAction::Execute(Event event)
     return false;
 }
 
-bool LadyVashjMisdirectStriderToFirstAssistTankAction::Execute(Event event)
-{
-    // Strider is not tankable without cheat
-    if (!botAI->HasCheat(BotCheatMask::raid))
-        return false;
-
-    if (bot->getClass() != CLASS_HUNTER)
-        return false;
-
-    Unit* strider = GetFirstAliveUnitByEntry(botAI, NPC_COILFANG_STRIDER);
-    if (!strider)
-        return false;
-
-    Player* firstAssistTank = nullptr;
-    if (Group* group = bot->GetGroup())
-    {
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
-        {
-            Player* member = ref->GetSource();
-            if (member && member->IsAlive() && botAI->IsAssistTankOfIndex(member, 0))
-            {
-                firstAssistTank = member;
-                break;
-            }
-        }
-    }
-
-    if (!firstAssistTank || strider->GetVictim() == firstAssistTank)
-        return false;
-
-    if (botAI->CanCastSpell("misdirection", firstAssistTank))
-        return botAI->CastSpell("misdirection", firstAssistTank);
-
-    if (bot->HasAura(SPELL_MISDIRECTION) && botAI->CanCastSpell("steady shot", strider))
-        return botAI->CastSpell("steady shot", strider);
-
-    return false;
-}
-
-bool LadyVashjTankAttackAndMoveAwayStriderAction::Execute(Event event)
-{
-    Unit* vashj = AI_VALUE2(Unit*, "find target", "lady vashj");
-    if (!vashj)
-        return false;
-
-    Unit* strider = GetFirstAliveUnitByEntry(botAI, NPC_COILFANG_STRIDER);
-    if (!strider)
-        return false;
-
-    // Raid cheat automatically applies Fear Ward to tanks to make Strider tankable
-    // This simulates the real-life strategy where the Strider can be meleed by
-    // Bots wearing an Ogre Suit (due to the extended combat reach)
-    if (botAI->HasCheat(BotCheatMask::raid) && botAI->IsTank(bot))
-    {
-        if (!bot->HasAura(SPELL_FEAR_WARD))
-            bot->AddAura(SPELL_FEAR_WARD, bot);
-
-        if (botAI->IsAssistTankOfIndex(bot, 0) && bot->GetVictim() != strider)
-            return Attack(strider);
-
-        if (strider->GetVictim() == bot)
-        {
-            float currentDistance = bot->GetExactDist2d(vashj);
-            const float safeDistance = 25.0f;
-
-            if (currentDistance < safeDistance)
-                return MoveAway(vashj, safeDistance - currentDistance + 5.0f);
-        }
-
-        return false;
-    }
-
-    // Don't move away if raid cheats are enabled, or in any case if the bot is a tank
-    if (!botAI->HasCheat(BotCheatMask::raid) || !botAI->IsTank(bot))
-    {
-        float currentDistance = bot->GetExactDist2d(strider);
-        const float safeDistance = 15.0f;
-        if (currentDistance < safeDistance)
-            return MoveAway(strider, safeDistance - currentDistance + 5.0f);
-    }
-
-    // Try to root/slow the Strider if it is not tankable
-    if (!botAI->HasCheat(BotCheatMask::raid))
-    {
-        if (!strider->HasAura(SPELL_HEAVY_NETHERWEAVE_NET))
-        {
-            Item* net = bot->GetItemByEntry(ITEM_HEAVY_NETHERWEAVE_NET);
-            if (net && botAI->HasItemInInventory(ITEM_HEAVY_NETHERWEAVE_NET) &&
-                botAI->CanCastSpell("heavy netherweave net", strider))
-                return botAI->CastSpell("heavy netherweave net", strider);
-        }
-
-        if (!strider->HasAura(SPELL_FROST_SHOCK) && bot->getClass() == CLASS_SHAMAN &&
-            botAI->CanCastSpell("frost shock", strider))
-            return botAI->CastSpell("frost shock", strider);
-
-        if (!strider->HasAura(SPELL_CURSE_OF_EXHAUSTION) && bot->getClass() == CLASS_WARLOCK &&
-            botAI->CanCastSpell("curse of exhaustion", strider))
-            return botAI->CastSpell("curse of exhaustion", strider);
-
-        if (!strider->HasAura(SPELL_SLOW) && bot->getClass() == CLASS_MAGE &&
-            botAI->CanCastSpell("slow", strider))
-            return botAI->CastSpell("slow", strider);
-    }
-
-    return false;
-}
-
-bool LadyVashjAssignDpsPriorityAction::Execute(Event event)
+bool LadyVashjAssignPhase2AndPhase3DpsPriorityAction::Execute(Event event)
 {
     Unit* vashj = AI_VALUE2(Unit*, "find target", "lady vashj");
     if (!vashj)
@@ -1860,7 +1746,7 @@ bool LadyVashjAssignDpsPriorityAction::Execute(Event event)
     Unit* enchanted = nullptr;
     Unit* elite = nullptr;
     Unit* strider = nullptr;
-    Unit* sporebat = nullptr;
+    // Unit* sporebat = nullptr;
 
     // Search and attack radius are intended to keep bots on the platform (not go down the stairs)
     const Position& center = VASHJ_PLATFORM_CENTER_POSITION;
@@ -1900,10 +1786,10 @@ bool LadyVashjAssignDpsPriorityAction::Execute(Event event)
                     strider = unit;
                 break;
 
-            case NPC_TOXIC_SPOREBAT:
+            /* case NPC_TOXIC_SPOREBAT:
                 if (!sporebat || unit->GetHealthPct() < sporebat->GetHealthPct())
                     sporebat = unit;
-                break;
+                break; */
 
             case NPC_LADY_VASHJ:
                 vashj = unit;
@@ -1930,7 +1816,6 @@ bool LadyVashjAssignDpsPriorityAction::Execute(Event event)
             targets = { tainted, enchanted, elite };
         else if (botAI->IsTank(bot))
         {
-            // With raid cheats enabled, the first assist tank will tank the Strider
             if (botAI->HasCheat(BotCheatMask::raid) && botAI->IsAssistTankOfIndex(bot, 0))
                 targets = { strider, elite, enchanted };
             else
@@ -1960,11 +1845,12 @@ bool LadyVashjAssignDpsPriorityAction::Execute(Event event)
         }
         else if (botAI->IsRanged(bot))
         {
-            // Ranged, other than Priests and Warlocks, will prioritize Toxic Sporebats
-            if (bot->getClass() == CLASS_PRIEST || bot->getClass() == CLASS_WARLOCK)
+            targets = { enchanted, strider, elite, vashj };
+            // Prior iteration: ranged, other than Priests and Warlocks, prioritize Toxic Sporebats
+            /* if (bot->getClass() == CLASS_PRIEST || bot->getClass() == CLASS_WARLOCK)
                 targets = { enchanted, strider, elite, vashj };
             else
-                targets = { enchanted, sporebat, strider, elite, vashj };
+                targets = { enchanted, sporebat, strider, elite, vashj }; */
         }
         else if (botAI->IsMelee(bot) && botAI->IsDps(bot))
             targets = { enchanted, elite, vashj };
@@ -2022,8 +1908,7 @@ bool LadyVashjAssignDpsPriorityAction::Execute(Event event)
         bot->SetSelection(ObjectGuid());
     }
 
-    // If bots have wandered too far from the center and
-    // are not attacking anything, move them back
+    // If bots have wandered too far from the center and are not attacking anything, move them back
     if (!bot->GetVictim())
     {
         Player* designatedLooter = GetDesignatedCoreLooter(bot->GetGroup(), botAI);
@@ -2047,8 +1932,117 @@ bool LadyVashjAssignDpsPriorityAction::Execute(Event event)
     return false;
 }
 
+bool LadyVashjMisdirectStriderToFirstAssistTankAction::Execute(Event event)
+{
+    // Striders are not tankable without a cheat to block Fear so there is
+    // no point in misdirecting if raid cheats are not enabled
+    if (!botAI->HasCheat(BotCheatMask::raid))
+        return false;
+
+    if (bot->getClass() != CLASS_HUNTER)
+        return false;
+
+    Unit* strider = GetFirstAliveUnitByEntry(botAI, NPC_COILFANG_STRIDER);
+    if (!strider)
+        return false;
+
+    Player* firstAssistTank = nullptr;
+    if (Group* group = bot->GetGroup())
+    {
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (member && member->IsAlive() && botAI->IsAssistTankOfIndex(member, 0))
+            {
+                firstAssistTank = member;
+                break;
+            }
+        }
+    }
+
+    if (!firstAssistTank || strider->GetVictim() == firstAssistTank)
+        return false;
+
+    if (botAI->CanCastSpell("misdirection", firstAssistTank))
+        return botAI->CastSpell("misdirection", firstAssistTank);
+
+    if (bot->HasAura(SPELL_MISDIRECTION) && botAI->CanCastSpell("steady shot", strider))
+        return botAI->CastSpell("steady shot", strider);
+
+    return false;
+}
+
+bool LadyVashjTankAttackAndMoveAwayStriderAction::Execute(Event event)
+{
+    Unit* vashj = AI_VALUE2(Unit*, "find target", "lady vashj");
+    if (!vashj)
+        return false;
+
+    Unit* strider = GetFirstAliveUnitByEntry(botAI, NPC_COILFANG_STRIDER);
+    if (!strider)
+        return false;
+
+    // Raid cheat automatically applies Fear Ward to tanks to make Strider tankable
+    // This simulates the real-life strategy where the Strider can be meleed by
+    // players wearing an Ogre Suit (due to the extended combat reach)
+    if (botAI->HasCheat(BotCheatMask::raid) && botAI->IsTank(bot))
+    {
+        if (!bot->HasAura(SPELL_FEAR_WARD))
+            bot->AddAura(SPELL_FEAR_WARD, bot);
+
+        if (botAI->IsAssistTankOfIndex(bot, 0) && bot->GetVictim() != strider)
+            return Attack(strider);
+
+        if (strider->GetVictim() == bot)
+        {
+            float currentDistance = bot->GetExactDist2d(vashj);
+            const float safeDistance = 25.0f;
+
+            if (currentDistance < safeDistance)
+                return MoveAway(vashj, safeDistance - currentDistance + 5.0f);
+        }
+
+        return false;
+    }
+
+    // Don't move away if raid cheats are enabled, or in any case if the bot is a tank
+    if (!botAI->HasCheat(BotCheatMask::raid) || !botAI->IsTank(bot))
+    {
+        float currentDistance = bot->GetExactDist2d(strider);
+        const float safeDistance = 15.0f;
+        if (currentDistance < safeDistance)
+            return MoveAway(strider, safeDistance - currentDistance + 5.0f);
+    }
+
+    // Try to root/slow the Strider if it is not tankable (poor man's kiting strategy)
+    if (!botAI->HasCheat(BotCheatMask::raid))
+    {
+        if (!strider->HasAura(SPELL_HEAVY_NETHERWEAVE_NET))
+        {
+            Item* net = bot->GetItemByEntry(ITEM_HEAVY_NETHERWEAVE_NET);
+            if (net && botAI->HasItemInInventory(ITEM_HEAVY_NETHERWEAVE_NET) &&
+                botAI->CanCastSpell("heavy netherweave net", strider))
+                return botAI->CastSpell("heavy netherweave net", strider);
+        }
+
+        if (!strider->HasAura(SPELL_FROST_SHOCK) && bot->getClass() == CLASS_SHAMAN &&
+            botAI->CanCastSpell("frost shock", strider))
+            return botAI->CastSpell("frost shock", strider);
+
+        if (!strider->HasAura(SPELL_CURSE_OF_EXHAUSTION) && bot->getClass() == CLASS_WARLOCK &&
+            botAI->CanCastSpell("curse of exhaustion", strider))
+            return botAI->CastSpell("curse of exhaustion", strider);
+
+        if (!strider->HasAura(SPELL_SLOW) && bot->getClass() == CLASS_MAGE &&
+            botAI->CanCastSpell("slow", strider))
+            return botAI->CastSpell("slow", strider);
+    }
+
+    return false;
+}
+
 // If cheats are enabled, the first returned melee DPS bot will teleport to Tainted Elementals
-// Such bot will recover HP and remove Poison Bolt debuff while attacking the elemental
+// Such bot will recover HP and remove the Poison Bolt debuff while attacking the elemental
 bool LadyVashjTeleportToTaintedElementalAction::Execute(Event event)
 {
     Unit* tainted = AI_VALUE2(Unit*, "find target", "tainted elemental");
