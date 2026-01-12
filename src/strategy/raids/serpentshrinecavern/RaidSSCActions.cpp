@@ -9,6 +9,69 @@
 
 using namespace SerpentShrineCavernHelpers;
 
+// General
+
+bool SerpentShrineCavernClearTimersAndTrackersAction::Execute(Event event)
+{
+    bool cleared = false;
+
+    if (!hydrossChangeToNaturePhaseTimer.empty())
+    {
+        hydrossChangeToNaturePhaseTimer.clear();
+        cleared = true;
+    }
+
+    if (!hydrossChangeToFrostPhaseTimer.empty())
+    {
+        hydrossChangeToFrostPhaseTimer.clear();
+        cleared = true;
+    }
+
+    if (!hydrossNatureDpsWaitTimer.empty())
+    {
+        hydrossNatureDpsWaitTimer.clear();
+        cleared = true;
+    }
+
+    if (!hydrossFrostDpsWaitTimer.empty())
+    {
+        hydrossFrostDpsWaitTimer.clear();
+        cleared = true;
+    }
+
+    if (!lurkerSpoutTimer.empty())
+    {
+        lurkerSpoutTimer.clear();
+        cleared = true;
+    }
+
+    if (!lurkerRangedPositions.empty())
+    {
+        lurkerRangedPositions.clear();
+        cleared = true;
+    }
+
+    if (!karathressDpsWaitTimer.empty())
+    {
+        karathressDpsWaitTimer.clear();
+        cleared = true;
+    }
+
+    if (!tidewalkerTankStep.empty())
+    {
+        tidewalkerTankStep.clear();
+        cleared = true;
+    }
+
+    if (!tidewalkerRangedStep.empty())
+    {
+        tidewalkerRangedStep.clear();
+        cleared = true;
+    }
+
+    return cleared;
+}
+
 // Trash Mobs
 
 // Non-combat method (some colossi leave a toxic pool upon death)
@@ -339,10 +402,7 @@ bool HydrossTheUnstableMisdirectBossToTankAction::TryMisdirectToFrostTank(
         if (botAI->CanCastSpell("misdirection", frostTank))
             return botAI->CastSpell("misdirection", frostTank);
 
-        if (!bot->HasAura(SPELL_MISDIRECTION))
-            return false;
-
-        if (botAI->CanCastSpell("steady shot", hydross))
+        if (bot->HasAura(SPELL_MISDIRECTION) && botAI->CanCastSpell("steady shot", hydross))
             return botAI->CastSpell("steady shot", hydross);
     }
 
@@ -356,7 +416,7 @@ bool HydrossTheUnstableMisdirectBossToTankAction::TryMisdirectToNatureTank(
     for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
         Player* member = ref->GetSource();
-        if (member && member->IsAlive() && botAI->IsAssistTankOfIndex(member, 0))
+        if (member && botAI->IsAssistTankOfIndex(member, 0, true))
         {
             natureTank = member;
             break;
@@ -368,10 +428,7 @@ bool HydrossTheUnstableMisdirectBossToTankAction::TryMisdirectToNatureTank(
         if (botAI->CanCastSpell("misdirection", natureTank))
             return botAI->CastSpell("misdirection", natureTank);
 
-        if (!bot->HasAura(SPELL_MISDIRECTION))
-            return false;
-
-        if (botAI->CanCastSpell("steady shot", hydross))
+        if (bot->HasAura(SPELL_MISDIRECTION) && botAI->CanCastSpell("steady shot", hydross))
             return botAI->CastSpell("steady shot", hydross);
     }
 
@@ -432,14 +489,6 @@ bool HydrossTheUnstableManageTimersAction::Execute(Event event)
 
     const uint32 instanceId = hydross->GetMap()->GetInstanceId();
     const time_t now = std::time(nullptr);
-
-    if (hydross->GetHealth() == hydross->GetMaxHealth())
-    {
-        hydrossFrostDpsWaitTimer.erase(instanceId);
-        hydrossNatureDpsWaitTimer.erase(instanceId);
-        hydrossChangeToFrostPhaseTimer.erase(instanceId);
-        hydrossChangeToNaturePhaseTimer.erase(instanceId);
-    }
 
     if (!hydross->HasAura(SPELL_CORRUPTION))
     {
@@ -517,9 +566,6 @@ bool TheLurkerBelowSpreadRangedInArcAction::Execute(Event event)
     if (!lurker)
         return false;
 
-    if (lurker->GetHealth() == lurker->GetMaxHealth())
-        lurkerRangedPositions.clear();
-
     std::vector<Player*> rangedMembers;
     if (Group* group = bot->GetGroup())
     {
@@ -593,9 +639,9 @@ bool TheLurkerBelowTanksPickUpAddsAction::Execute(Event event)
 
             if (!mainTank && botAI->IsMainTank(member))
                 mainTank = member;
-            else if (!firstAssistTank && botAI->IsAssistTankOfIndex(member, 0))
+            else if (!firstAssistTank && botAI->IsAssistTankOfIndex(member, 0, true))
                 firstAssistTank = member;
-            else if (!secondAssistTank && botAI->IsAssistTankOfIndex(member, 1))
+            else if (!secondAssistTank && botAI->IsAssistTankOfIndex(member, 1, true))
                 secondAssistTank = member;
         }
     }
@@ -649,12 +695,6 @@ bool TheLurkerBelowManageSpoutTimerAction::Execute(Event event)
 
     const uint32 instanceId = lurker->GetMap()->GetInstanceId();
     const time_t now = std::time(nullptr);
-
-    if (lurker->GetHealth() == lurker->GetMaxHealth())
-    {
-        lurkerSpoutTimer.erase(instanceId);
-        return false;
-    }
 
     auto it = lurkerSpoutTimer.find(instanceId);
     if (it != lurkerSpoutTimer.end() && it->second <= now)
@@ -865,8 +905,7 @@ bool LeotherasTheBlindMisdirectBossToDemonFormTankAction::Execute(Event event)
     if (botAI->CanCastSpell("misdirection", demonFormTank))
         return botAI->CastSpell("misdirection", demonFormTank);
 
-    if (bot->HasAura(SPELL_MISDIRECTION) &&
-        botAI->CanCastSpell("steady shot", leotherasDemon))
+    if (bot->HasAura(SPELL_MISDIRECTION) && botAI->CanCastSpell("steady shot", leotherasDemon))
         return botAI->CastSpell("steady shot", leotherasDemon);
 
     return false;
@@ -1127,7 +1166,7 @@ bool FathomLordKarathressMisdirectBossesToTanksAction::Execute(Event event)
         for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
             Player* member = ref->GetSource();
-            if (member && member->IsAlive() && botAI->IsAssistTankOfIndex(member, 0))
+            if (member && member->IsAlive() && botAI->IsAssistTankOfIndex(member, 0, false))
             {
                 tankTarget = member;
                 break;
@@ -1140,7 +1179,7 @@ bool FathomLordKarathressMisdirectBossesToTanksAction::Execute(Event event)
         for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
             Player* member = ref->GetSource();
-            if (member && member->IsAlive() && botAI->IsAssistTankOfIndex(member, 2))
+            if (member && member->IsAlive() && botAI->IsAssistTankOfIndex(member, 2, false))
             {
                 tankTarget = member;
                 break;
@@ -1153,7 +1192,7 @@ bool FathomLordKarathressMisdirectBossesToTanksAction::Execute(Event event)
         for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
             Player* member = ref->GetSource();
-            if (member && member->IsAlive() && botAI->IsAssistTankOfIndex(member, 1))
+            if (member && member->IsAlive() && botAI->IsAssistTankOfIndex(member, 1, false))
             {
                 tankTarget = member;
                 break;
@@ -1173,8 +1212,8 @@ bool FathomLordKarathressMisdirectBossesToTanksAction::Execute(Event event)
     return false;
 }
 
-// Kill order is non-standard because bots handle Caribdis Cyclones poorly and need more time to
-// get her down than real players (standard approach is ranged DPS would help with Sharkkis first)
+// Kill order is non-standard because bots handle Cyclones poorly and need more time
+// to get her down than real players (standard is ranged DPS help with Sharkkis first)
 bool FathomLordKarathressAssignDpsPriorityAction::Execute(Event event)
 {
     // Target priority 1: Spitfire Totems for melee dps
@@ -1289,10 +1328,8 @@ bool FathomLordKarathressManageDpsTimerAction::Execute(Event event)
     if (!karathress)
         return false;
 
-    const time_t now = std::time(nullptr);
-
-    if (karathress->GetHealth() == karathress->GetMaxHealth())
-        karathressDpsWaitTimer.insert_or_assign(karathress->GetMap()->GetInstanceId(), now);
+    karathressDpsWaitTimer.try_emplace(
+        karathress->GetMap()->GetInstanceId(), std::time(nullptr));
 
     return false;
 }
@@ -1478,23 +1515,6 @@ bool MorogrimTidewalkerPhase2RepositionRangedAction::Execute(Event event)
             return MoveTo(SSC_MAP_ID, moveX, moveY, phase2.GetPositionZ(), false, false,
                           false, false, MovementPriority::MOVEMENT_COMBAT, true, false);
         }
-    }
-
-    return false;
-}
-
-bool MorogrimTidewalkerResetPhaseTransitionStepsAction::Execute(Event event)
-{
-    Unit* tidewalker = AI_VALUE2(Unit*, "find target", "morogrim tidewalker");
-    if (!tidewalker)
-        return false;
-
-    const ObjectGuid botGuid = bot->GetGUID();
-
-    if (tidewalker->GetHealth() == tidewalker->GetMaxHealth())
-    {
-        tidewalkerTankStep.erase(botGuid);
-        tidewalkerRangedStep.erase(botGuid);
     }
 
     return false;
@@ -1738,9 +1758,6 @@ bool LadyVashjStaticChargeMoveAwayFromGroupAction::Execute(Event event)
 
 bool LadyVashjAssignPhase2AndPhase3DpsPriorityAction::Execute(Event event)
 {
-    if (botAI->IsHeal(bot))
-        return false;
-
     Unit* vashj = AI_VALUE2(Unit*, "find target", "lady vashj");
     if (!vashj)
         return false;
@@ -1816,7 +1833,7 @@ bool LadyVashjAssignPhase2AndPhase3DpsPriorityAction::Execute(Event event)
             targets = { enchanted, elite };
         else if (botAI->IsTank(bot))
         {
-            if (botAI->HasCheat(BotCheatMask::raid) && botAI->IsAssistTankOfIndex(bot, 0))
+            if (botAI->HasCheat(BotCheatMask::raid) && botAI->IsAssistTankOfIndex(bot, 0, true))
                 targets = { strider, elite, enchanted };
             else
                 targets = { elite, strider, enchanted };
@@ -1835,7 +1852,7 @@ bool LadyVashjAssignPhase2AndPhase3DpsPriorityAction::Execute(Event event)
                 SetRtiTarget(botAI, "diamond", vashj);
                 targets = { vashj };
             }
-            else if (botAI->IsAssistTankOfIndex(bot, 0))
+            else if (botAI->IsAssistTankOfIndex(bot, 0, true))
             {
                 if (botAI->HasCheat(BotCheatMask::raid))
                     targets = { strider, elite, enchanted, vashj };
@@ -1845,7 +1862,6 @@ bool LadyVashjAssignPhase2AndPhase3DpsPriorityAction::Execute(Event event)
         }
         else if (botAI->IsRanged(bot))
         {
-            // targets = { enchanted, strider, elite, vashj };
             if (bot->getClass() == CLASS_HUNTER)
                 targets = { sporebat, enchanted, strider, elite, vashj };
             else
@@ -1934,7 +1950,7 @@ bool LadyVashjMisdirectStriderToFirstAssistTankAction::Execute(Event event)
         for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
             Player* member = ref->GetSource();
-            if (member && member->IsAlive() && botAI->IsAssistTankOfIndex(member, 0))
+            if (member && botAI->IsAssistTankOfIndex(member, 0, true))
             {
                 firstAssistTank = member;
                 break;
@@ -1972,7 +1988,8 @@ bool LadyVashjTankAttackAndMoveAwayStriderAction::Execute(Event event)
         if (!bot->HasAura(SPELL_FEAR_WARD))
             bot->AddAura(SPELL_FEAR_WARD, bot);
 
-        if (botAI->IsAssistTankOfIndex(bot, 0) && bot->GetTarget() != strider->GetGUID())
+        if (botAI->IsAssistTankOfIndex(bot, 0, true) &&
+            bot->GetTarget() != strider->GetGUID())
             return Attack(strider);
 
         if (strider->GetVictim() == bot)

@@ -9,6 +9,10 @@ class RaidSSCTriggerContext : public NamedObjectContext<Trigger>
 public:
     RaidSSCTriggerContext()
     {
+        // General
+        creators["serpent shrine cavern timer bot is not in combat"] =
+            &RaidSSCTriggerContext::serpent_shrine_cavern_timer_bot_is_not_in_combat;
+
         // Trash
         creators["underbog colossus spawned toxic pool after death"] =
             &RaidSSCTriggerContext::underbog_colossus_spawned_toxic_pool_after_death;
@@ -117,9 +121,6 @@ public:
         creators["morogrim tidewalker water globules are incoming"] =
             &RaidSSCTriggerContext::morogrim_tidewalker_water_globules_are_incoming;
 
-        creators["morogrim tidewalker encounter reset"] =
-            &RaidSSCTriggerContext::morogrim_tidewalker_encounter_reset;
-
         // Lady Vashj <Coilfang Matron>
         creators["lady vashj boss engaged by main tank"] =
             &RaidSSCTriggerContext::lady_vashj_boss_engaged_by_main_tank;
@@ -138,6 +139,9 @@ public:
 
         creators["lady vashj adds spawn in phase 2 and phase 3"] =
             &RaidSSCTriggerContext::lady_vashj_adds_spawn_in_phase_2_and_phase_3;
+
+        creators["lady vashj coilfang strider is approaching"] =
+            &RaidSSCTriggerContext::lady_vashj_coilfang_strider_is_approaching;
 
         creators["lady vashj tainted elemental cheat"] =
             &RaidSSCTriggerContext::lady_vashj_tainted_elemental_cheat;
@@ -159,6 +163,10 @@ public:
     }
 
 private:
+    // General
+    static Trigger* serpent_shrine_cavern_timer_bot_is_not_in_combat(
+        PlayerbotAI* botAI) { return new SerpentShrineCavernTimerBotIsNotInCombatTrigger(botAI); }
+
     // Trash
     static Trigger* underbog_colossus_spawned_toxic_pool_after_death(
         PlayerbotAI* botAI) { return new UnderbogColossusSpawnedToxicPoolAfterDeathTrigger(botAI); }
@@ -267,9 +275,6 @@ private:
     static Trigger* morogrim_tidewalker_water_globules_are_incoming(
         PlayerbotAI* botAI) { return new MorogrimTidewalkerWaterGlobulesAreIncomingTrigger(botAI); }
 
-    static Trigger* morogrim_tidewalker_encounter_reset(
-        PlayerbotAI* botAI) { return new MorogrimTidewalkerEncounterResetTrigger(botAI); }
-
     // Lady Vashj <Coilfang Matron>
     static Trigger* lady_vashj_boss_engaged_by_main_tank(
         PlayerbotAI* botAI) { return new LadyVashjBossEngagedByMainTankTrigger(botAI); }
@@ -288,6 +293,9 @@ private:
 
     static Trigger* lady_vashj_adds_spawn_in_phase_2_and_phase_3(
         PlayerbotAI* botAI) { return new LadyVashjAddsSpawnInPhase2AndPhase3Trigger(botAI); }
+
+    static Trigger* lady_vashj_coilfang_strider_is_approaching(
+        PlayerbotAI* botAI) { return new LadyVashjCoilfangStriderIsApproachingTrigger(botAI); }
 
     static Trigger* lady_vashj_tainted_elemental_cheat(
         PlayerbotAI* botAI) { return new LadyVashjTaintedElementalCheatTrigger(botAI); }

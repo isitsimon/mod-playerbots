@@ -3,6 +3,10 @@
 
 void RaidSSCStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 {
+    // General
+    triggers.push_back(new TriggerNode("serpent shrine cavern timer bot is not in combat", {
+        NextAction("serpent shrine cavern clear timers and trackers", ACTION_EMERGENCY + 11) }));
+
     // Trash Mobs
     triggers.push_back(new TriggerNode("underbog colossus spawned toxic pool after death", {
         NextAction("underbog colossus escape toxic pool", ACTION_EMERGENCY + 10) }));
@@ -111,9 +115,6 @@ void RaidSSCStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     triggers.push_back(new TriggerNode("morogrim tidewalker pulling boss", {
         NextAction("morogrim tidewalker misdirect boss to main tank", ACTION_RAID + 1) }));
 
-    triggers.push_back(new TriggerNode("morogrim tidewalker encounter reset", {
-        NextAction("morogrim tidewalker reset phase transition steps", ACTION_RAID + 2) }));
-
     // Lady Vashj <Coilfang Matron>
     triggers.push_back(new TriggerNode("lady vashj boss engaged by main tank", {
         NextAction("lady vashj main tank position boss", ACTION_RAID + 1) }));
@@ -141,8 +142,10 @@ void RaidSSCStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
         NextAction("lady vashj destroy tainted core", ACTION_EMERGENCY + 1) }));
 
     triggers.push_back(new TriggerNode("lady vashj adds spawn in phase 2 and phase 3", {
-        NextAction("lady vashj assign phase 2 and phase 3 dps priority", ACTION_RAID + 1),
-        NextAction("lady vashj misdirect strider to first assist tank", ACTION_EMERGENCY + 1),
+        NextAction("lady vashj assign phase 2 and phase 3 dps priority", ACTION_RAID + 1) }));
+
+    triggers.push_back(new TriggerNode("lady vashj coilfang strider is approaching", {
+        NextAction("lady vashj misdirect strider to first assist tank", ACTION_EMERGENCY + 2),
         NextAction("lady vashj tank attack and move away strider", ACTION_EMERGENCY + 1) }));
 
     triggers.push_back(new TriggerNode("lady vashj toxic sporebats are spewing poison clouds", {

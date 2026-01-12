@@ -3,6 +3,16 @@
 
 #include "Trigger.h"
 
+// General
+
+class SerpentShrineCavernTimerBotIsNotInCombatTrigger : public Trigger
+{
+public:
+    SerpentShrineCavernTimerBotIsNotInCombatTrigger(
+        PlayerbotAI* botAI) : Trigger(botAI, "serpent shrine cavern timer bot is not in combat") {}
+    bool IsActive() override;
+};
+
 // Trash
 
 class UnderbogColossusSpawnedToxicPoolAfterDeathTrigger : public Trigger
@@ -295,14 +305,6 @@ public:
     bool IsActive() override;
 };
 
-class MorogrimTidewalkerEncounterResetTrigger : public Trigger
-{
-public:
-    MorogrimTidewalkerEncounterResetTrigger(
-        PlayerbotAI* botAI) : Trigger(botAI, "morogrim tidewalker encounter reset") {}
-    bool IsActive() override;
-};
-
 // Lady Vashj <Coilfang Matron>
 
 class LadyVashjBossEngagedByMainTankTrigger : public Trigger
@@ -350,6 +352,14 @@ class LadyVashjAddsSpawnInPhase2AndPhase3Trigger : public Trigger
 public:
     LadyVashjAddsSpawnInPhase2AndPhase3Trigger(
         PlayerbotAI* botAI) : Trigger(botAI, "lady vashj adds spawn in phase 2 and phase 3") {}
+    bool IsActive() override;
+};
+
+class LadyVashjCoilfangStriderIsApproachingTrigger : public Trigger
+{
+public:
+    LadyVashjCoilfangStriderIsApproachingTrigger(
+        PlayerbotAI* botAI) : Trigger(botAI, "lady vashj coilfang strider is approaching") {}
     bool IsActive() override;
 };
 
